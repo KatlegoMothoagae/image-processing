@@ -67,7 +67,19 @@ def filter_cascade(filters):
     single filter such that applying that filter to an image produces the same
     output as applying each of the individual ones in turn.
     """
-    raise NotImplementedError
+    def apply_filters(image):
+        for filter in filters:
+            print(filter)
+            image = filter(image)
+            print(image)
+        print("done")
+        return image
+
+    return apply_filters
+
+    
+    
+
 
 
 # SEAM CARVING
@@ -218,9 +230,14 @@ if __name__ == "__main__":
     # code in this block will only be run when you explicitly run your script,
     # and not when the tests are being run.  this is a good place for
     # generating images, etc.
+    
     img = load_color_image("test_images/frog.png")
-    inverted_color = color_filter_from_greyscale_filter(make_blur_filter(3))
-    print(inverted_color(img))
-    inverted_img = save_color_image(inverted_color(img), "test.png")
+    blur_color = color_filter_from_greyscale_filter(make_blur_filter(3))
+    inverted_color = color_filter_from_greyscale_filter(inverted)
+    
+    
+    filter_ = filter_cascade([inverted_color, blur_color])
+    save_color_image(filter_(img), "test_2.png")
+    print("done")
 
 
