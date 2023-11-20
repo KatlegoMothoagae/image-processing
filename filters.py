@@ -20,7 +20,7 @@ def apply_per_pixel(image, func):
         for col in range(image["width"]):
        
             color = get_pixel(image, row, col)
-            new_color = func(color)
+            new_color = func(*color)
             set_pixel(result, row, col, new_color)
          
     return result
@@ -172,7 +172,7 @@ def correlate(image, kernel, boundary_behavior):
     padded_image = pad_image_num(image,boundary_behavior, n)
     targets = get_target_pixels(padded_image, n)
 
-    new_image = {
+    result = {
         "height": padded_image["height"],
         "width": padded_image["width"],
         "pixels": padded_image["pixels"].copy()
@@ -183,9 +183,9 @@ def correlate(image, kernel, boundary_behavior):
     
         neighbors = get_neighboring_pixels(target, n, padded_image)
         new_color = multiply(kernel["pixels"], neighbors)
-        set_pixel(new_image, *target, new_color)
+        set_pixel(result, *target, new_color)
   
-    return remove_layers(new_image, n)
+    return remove_layers(result, n)
 
 
 def round_and_clip_image(image):
@@ -209,16 +209,6 @@ def round_and_clip_image(image):
             else:
                 set_pixel(image, row, col, int(current))
 
-def average_img(image):
-    kernel = average
-    result = {"height":image["height"],
-              "width":image["width"],
-              "pixels":image["pixels"]}
-    for i in range(10):
-        result =correlate(result, kernel, "wrap")
-        save_greyscale_image(result,f"{i}.png")
-
-    return result
 
 def blurred(image, kernel_size):
     """
@@ -258,12 +248,6 @@ def sharpen(image, kernel_size):
     
     return result
 
-def test(image,size):
-    for i in range(5):
-        blurred_img = blurred(image, size)
-        sharpened_img = sharpen(image,size)
-        #save_greyscale_image(blurred_img, f"blurred{i+1}.png")
-        save_greyscale_image(sharpened_img, f"sharpened{i+1}.png")
 def remove_layers(image, n):
     result = {"height":image["height"],
               "width":image["width"],
@@ -288,6 +272,31 @@ def remove_layers(image, n):
     
     return result
 
+def edge_detection(image):
+    kernel_1 = {"height":3,
+              "width":3,
+              "pixels":[-1, -2, -1, 0, 0, 0, 1, 2, 1]}
+    
+    kernel_2 = {"height":3,
+              "width":3,
+              "pixels":[-1, 0, 1, -2, 0, 2, -1, 0, 1]}
+    
+    image_1 = correlate(image, kernel_1, "extend")
+    image_2 = correlate(image, kernel_2, "extend")
+
+    result = {
+        "height": image["height"],
+        "width": image["width"],
+        "pixels": image["pixels"][::]
+    }
+
+    for row in range(image["height"]):
+        for col in range(image["width"]):
+            color = round(math.sqrt(math.pow(get_pixel(image_1, row, col),2) + math.pow(get_pixel(image_2, row, col), 2)))
+            set_pixel(result, row, col, color)
+    
+    round_and_clip_image(result)
+    return result
 
 def load_greyscale_image(filename):
     """
@@ -332,9 +341,8 @@ def main():
     path = "test_images/"
 
     img = load_greyscale_image(path+"pattern.png")
-
-    test(img,3)
-    #save_greyscale_image(inverted_img, "x.png")
+    inverted_img = edge_detection(img)
+    save_greyscale_image(inverted_img, "x.png")
 
 if __name__ == "__main__":
     main()

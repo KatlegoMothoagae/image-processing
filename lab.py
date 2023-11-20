@@ -9,7 +9,7 @@ Image Processing 2
 # (except in the last part of the lab; see the lab writeup for details)
 import math
 from PIL import Image
-from filters import inverted, blurred, sharpen
+from filters import * 
 
 # VARIOUS FILTERS
 
@@ -92,9 +92,24 @@ def seam_carving(image, ncols):
     Starting from the given image, use the seam carving technique to remove
     ncols (an integer) columns from the image. Returns a new image.
     """
-    raise NotImplementedError
-
-
+    result = result = {
+        "height": image["height"],
+        "width": image["width"],
+        "pixels": image["pixels"]
+    }
+    # print(f"before: {result}")
+    for i in range(20):
+        grey = greyscale_image_from_color_image(result)
+        # print(f"after {result}")
+        energy = compute_energy(grey)
+        cem = cumulative_energy_map(energy)
+        seam = minimum_energy_seam(cem)
+    
+        result = image_without_seam(result, seam)
+        
+        save_color_image(result,f"color_{i}.png")
+ 
+    return result
 # Optional Helper Functions for Seam Carving
 
 
@@ -104,7 +119,16 @@ def greyscale_image_from_color_image(image):
 
     Returns a greyscale image (represented as a dictionary).
     """
-    raise NotImplementedError
+    result = {
+        "height": image["height"],
+        "width": image["width"],
+        "pixels": image["pixels"][::]
+    }
+
+    func = lambda r, g, b: round(0.299*r + 0.587*g + 0.114 * b)
+    result = apply_per_pixel(result, func)
+
+    return result
 
 
 def compute_energy(grey):
@@ -114,7 +138,8 @@ def compute_energy(grey):
 
     Returns a greyscale image (represented as a dictionary).
     """
-    raise NotImplementedError
+ 
+    return edge_detection(grey) 
 
 
 def cumulative_energy_map(energy):
@@ -127,7 +152,40 @@ def cumulative_energy_map(energy):
     the values in the 'pixels' array may not necessarily be in the range [0,
     255].
     """
-    raise NotImplementedError
+    result = result = {
+        "height": energy["height"],
+        "width": energy["width"],
+        "pixels": energy["pixels"]
+    }
+
+    for row in range(energy["height"]):
+        for col in range(energy["width"]):
+            color = get_pixel(energy, row, col)
+            if row > 0:
+                if col == 0:
+                    adj1 = get_pixel(energy, row - 1, col)
+                    adj2 = get_pixel(energy, row - 1, col + 1)
+              
+                    new_color = color + min(adj1, adj2)
+
+                elif col == energy["width"] -1:
+                    adj1 = get_pixel(energy, row - 1, col)
+                    adj2 = get_pixel(energy, row - 1, col - 1)
+           
+                    new_color = color + min(adj1, adj2)
+                
+                else:
+                    adj1 = get_pixel(energy, row - 1, col)
+                    adj2 = get_pixel(energy, row - 1, col - 1)
+                    adj3 = get_pixel(energy, row - 1, col + 1)
+                    new_color = color + min(adj1, adj2, adj3)
+            else:
+                new_color = get_pixel(energy, row, col)
+                
+            
+            set_pixel(result, row, col, new_color)
+    print(result)
+    return result
 
 
 def minimum_energy_seam(cem):
@@ -136,7 +194,42 @@ def minimum_energy_seam(cem):
     'pixels' list that correspond to pixels contained in the minimum-energy
     seam (computed as described in the lab 2 writeup).
     """
-    raise NotImplementedError
+    
+    minimum = get_pixel(cem, cem["height"] - 1, 0)
+    
+    for col in range(cem["width"]):
+        if minimum > (get_pixel(cem, cem["height"] - 1, col)):
+            minimum = get_pixel(cem, cem["height"] - 1, col)
+            pos = col
+
+    path = [(cem["height"] - 1,pos)]
+
+    for row in range(cem["height"] - 1, 0, -1):
+        minimum = math.inf
+
+        if pos == 0:
+            adj1 = get_pixel(cem, row - 1, pos)
+            adj2 = get_pixel(cem, row - 1, pos + 1)
+            minimum, pos  = min((adj1, pos),(adj2,pos + 1), key = lambda x: x[0])
+       
+        elif pos == cem["width"] -1:
+            adj1 = get_pixel(cem, row - 1, pos)
+            adj2 = get_pixel(cem, row - 1, pos - 1)
+            minimum, pos  = min((adj1, pos),(adj2,pos - 1), key = lambda x: x[0])
+
+        else:
+            adj1 = get_pixel(cem, row - 1, pos - 1)
+            adj2 = get_pixel(cem, row - 1, pos)
+            adj3 = get_pixel(cem, row - 1, pos + 1)
+            minimum, pos  = min((adj1, pos - 1),(adj2,pos),(adj3,pos + 1), key = lambda x: x[0])
+    
+        path.append((row - 1, pos))
+
+        #print(n)     
+    print(path)
+    return path
+
+
 
 
 def image_without_seam(image, seam):
@@ -146,10 +239,19 @@ def image_without_seam(image, seam):
     pixels from the original image except those corresponding to the locations
     in the given list.
     """
-    raise NotImplementedError
+    result = {
+        "height": image["height"],
+        "width": image["width"] - 1,
+        "pixels": []
+    }
+    for row in range(image["height"]):
+        for col in range(image["width"]):
+            if (row,col) not in seam:
+                print(get_pixel(image,row,col))
+                result["pixels"].append(get_pixel(image,row,col))
+    
+    return result
 
-
-# HELPER FUNCTIONS FOR LOADING AND SAVING COLOR IMAGES
 
 
 def load_color_image(filename):
@@ -231,13 +333,17 @@ if __name__ == "__main__":
     # and not when the tests are being run.  this is a good place for
     # generating images, etc.
     
-    img = load_color_image("test_images/frog.png")
-    blur_color = color_filter_from_greyscale_filter(make_blur_filter(3))
-    inverted_color = color_filter_from_greyscale_filter(inverted)
-    
-    
-    filter_ = filter_cascade([inverted_color, blur_color])
-    save_color_image(filter_(img), "test_2.png")
+    img = load_color_image("test_images/twocats.png")
+
+    result = seam_carving(img,2)
+    # img = greyscale_image_from_color_image(img)
+    # save_greyscale_image(img, "test_grey.png")
+    # energy = compute_energy(result)
+    # save_greyscale_image(energy, "test_energy.png")
+    # cumulative = cumulative_energy_map(energy)
+    # minimum_energy_seam(cumulative)
+    # save_greyscale_image(result, "test_cumulative_energy.png")
+ 
     print("done")
 
 
